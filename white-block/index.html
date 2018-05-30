@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset='UTF-8' />
+	<title>NoWhiteSpace</title>
+	<meta name='viewport' content='width=device-width,initial-scale=1.maxinum-scale=1,user-scalable=no'> 
+	<link rel='stylesheet' type='text/css' href='index.css'/>
+</head>
+<body>
+
+<canvas id='container' width='400' height='600'></canvas>
+
+<script src='jquery.js'></script>
+<script>
+$(function () {
+	var tools, canvas;
+	tools = {
+		mt_rand : function (a, b) {
+			return a < b ?
+					(Math.floor(Math.abs(a - b) * Math.random()) + a) : (Math.floor(Math.abs(a - b) * Math.random()) + b);
+		}
+	};
+	function Mnws(canvas) {
+			this.can = canvas;
+			this.box = {};
+			this.box.w = $(this.can).width();
+			this.box.h = $(this.can).height();
+			this.ctx = this.can.getContext('2d');
+			this.ctx.strokeStyle = '#eee';
+			this.ctx.fillStyle = '#333';
+			this.is_fail = false;
+			this.rows = 4;
+			this.cols = 4;
+			this.speed = 1;
+			this.stepy = Math.floor(this.box.h / this.rows);
+			this.stepx = Math.floor(this.box.w / this.cols);
+			this.initial();
+			this.event();
+	}
+	Mnws.prototype = {
+		initial : function () {
+			this.doCanvas();
+			this.drawYLines();
+			this.imgData = this.ctx.getImageData(0, 0, this.box.w, this.box.h);
+			this.create();
+			this.change();
+			this.Speed();
+		},
+		doCanvas : function () {
+			$(this.can).attr('width', this.box.w);
+			$(this.can).attr('height', this.box.h);
+		},
+		drawYLines : function () {
+			var lineNum = this.rows;
+			while (--lineNum) {
+				this.ctx.save();
+				this.ctx.beginPath();
+				this.ctx.strokeStyle = '#aaa';
+				this.ctx.moveTo(this.stepx * lineNum + 0.5, 0);
+				this.ctx.lineTo(this.stepx * lineNum + 0.5, this.box.h);
+				this.ctx.stroke();
+				this.ctx.restore();
+			}
+		},
+		create : function () {
+			var i, num;
+			this.model = [];
+			num = this.rows + 2;
+			for (i = 1; i < num; i++) {
+				this.pushOneToModel();
+			}
+		},
+		pushOneToModel : function () {
+			var model = this.model,
+				rand = tools.mt_rand(0, this.cols),
+				initialY;
+			if (model.length === 0) {
+				initialY = this.box.h * (this.rows - 1) / this.rows + 0.5;
+				this.model.push({
+					index : 0,
+					y : initialY,
+					rect_x : this.stepx * rand + 0.5,
+					clicked : 0
+				});
+			}
+			model.push({
+				index : model[model.length - 1].index + 1,
+				y : model[model.length - 1].y - this.stepy,
+				rect_x : this.stepx * rand + 0.5,
+				clicked : 0
+			});
+		},
+		render : function () {
+			var that = this;
+			this.ctx.putImageData(this.imgData, 0, 0, 0, 0, this.box.w, this.box.h);
+			this.model.forEach(function (obj) {
+				that.ctx.save();
+				that.ctx.strokeStyle = '#aaa';
+				that.ctx.beginPath();
+				that.ctx.moveTo(0, obj.y);
+				that.ctx.lineTo(that.box.w, obj.y);
+				that.ctx.stroke();
+				that.ctx.restore();
+				if (!obj.clicked) {
+					that.ctx.fillRect(obj.rect_x, obj.y - that.stepy, that.stepx, that.stepy);
+				} else {
+					that.ctx.save();
+					that.ctx.globalAlpha = obj.opacity;
+					that.ctx.fillStyle = '#aaa';
+					that.ctx.fillRect(obj.rect_x, obj.y - that.stepy, that.stepx, that.stepy);
+					that.ctx.restore();
+				}
+				if (obj.wrong) {
+					that.ctx.save();
+					that.ctx.globalAlpha =	obj.wrong.opacity;
+					that.ctx.fillStyle = 'red';
+					that.ctx.fillRect(obj.wrong.rect_x, obj.y - that.stepy, that.stepx, that.stepy);
+					that.ctx.restore();
+				}
+			});
+		},
+		change : function () {
+			var model = this.model,
+				that = this;
+			this.timer = setInterval(function () {
+				if (model[0].y > that.box.h + that.stepy) {
+					console.log(model[0]);
+					if (model[0].clicked) {
+						model.shift();
+						that.pushOneToModel();
+					} else {
+						that.stop();
+						that.fail();
+					}
+				}
+				model.forEach(function (obj) {
+					if (obj.clicked) {
+						obj.opacity = obj.opacity || 1;
+						obj.opacity = (obj.opacity - 0.1) > 0.2 ? (obj.opacity - 0.1) : 0.2;
+					}
+					if (obj.wrong) {
+						obj.wrong.opacity = obj.wrong.opacity || 1;
+						obj.wrong.opacity = (obj.wrong.opacity - 0.1 > 0.5) ? (obj.wrong.opacity - 0.1) : 0.5;
+					}
+					obj.y += that.speed;
+				});
+				that.render();
+			}, 1000 / 24);
+		},
+		Speed : function () {
+			var that = this,
+				timer,
+				result;
+			timer = setInterval(function () {
+				if (!that.is_fail) {
+					result = Math.floor(Math.log(that.model[0].index) / Math.log(1.3));
+					that.speed = result > 1 ? result : 1;
+					console.log(that.speed);
+				} else {
+					clearInterval(timer);
+				}
+			}, 1000 / 2);
+		}
+	}
+
+	canvas = document.getElementById('container');
+	new Mnws(canvas);
+})
+</script>
+</body>
+</html>
